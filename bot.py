@@ -2,7 +2,7 @@ import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = "8905713910"
+TOKEN = "8905713910:AAEsCDADJCSouybRha_aCb9q34EAM3Toiys"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Welcome to VCF Maker Bot! 📇\n\nMujhe Name, Phone Number bhejein (jaise: Rahul, 9876543210) aur mai VCF file bana dunga.")
