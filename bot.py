@@ -46,7 +46,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🌟 **WELCOME TO VCF TOOL BOT** 🌟\n\n"
         f"👤 **User:** {user.first_name}\n"
         f"⭐ **Status:** (Premium Unlocked 🔓)\n\n"
-        f"🛠️ Select a service from the menu below or directly upload your `.txt` file:",
+        f"🛠️ Select a service from the menu below:",
         reply_markup=reply_markup,
         parse_mode="Markdown"
     )
@@ -57,7 +57,7 @@ async def handle_menu_choice(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if text == "Text to VCF":
         await update.message.reply_text(
             "📁 **Text to VCF Selected**\n\n"
-            "Please upload your `.txt` file containing numbers (1000+ numbers supported) or send them as text:",
+            "Please upload your `.txt` file containing numbers (1000+ numbers supported):",
             reply_markup=ReplyKeyboardRemove(),
             parse_mode="Markdown"
         )
@@ -72,27 +72,32 @@ async def handle_menu_choice(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def get_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = ""
-    if update.message.document:
-        doc = update.message.document
-        file = await context.bot.get_file(doc.file_id)
-        file_bytes = await file.download_as_bytearray()
-        try:
-            text = file_bytes.decode('utf-8', errors='ignore')
-        except Exception:
-            text = file_bytes.decode('latin-1', errors='ignore')
-    elif update.message.text:
-        text = update.message.text
+    try:
+        if update.message.document:
+            doc = update.message.document
+            file = await context.bot.get_file(doc.file_id)
+            file_bytes = await file.download_as_bytearray()
+            try:
+                text = file_bytes.decode('utf-8', errors='ignore')
+            except Exception:
+                text = file_bytes.decode('latin-1', errors='ignore')
+        elif update.message.text:
+            text = update.message.text
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error reading file: {str(e)}\nPlease upload the `.txt` file again.")
+        return GET_FILE
 
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     
     if not lines:
-        await update.message.reply_text("❌ No contacts found! Please upload a valid `.txt` file.")
+        await update.message.reply_text("❌ No contacts found in the file! Please upload a valid `.txt` file.")
         return GET_FILE
 
     context.user_data['contacts'] = lines
     await update.message.reply_text(
         f"✅ Successfully received **{len(lines)}** contacts!\n\n"
-        "2️⃣ How many contacts do you want in each VCF file? (Example: `50` or `100`):"
+        "2️⃣ How many contacts do you want in each VCF file? (Example: `50` or `100`):",
+        parse_mode="Markdown"
     )
     return GET_BATCH_SIZE
 
@@ -187,10 +192,7 @@ if __name__ == '__main__':
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
-            CHOOSING: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_choice),
-                MessageHandler(filters.Document.ALL, get_file)  # Direct file upload support at any time!
-            ],
+            CHOOSING: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_choice)],
             GET_FILE: [MessageHandler(filters.Document.ALL | (filters.TEXT & ~filters.COMMAND), get_file)],
             GET_BATCH_SIZE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_batch_size)],
             GET_START_NUM: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_start_num)],
