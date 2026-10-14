@@ -27,10 +27,10 @@ def run_server():
 threading.Thread(target=run_server, daemon=True).start()
 
 # --- Configuration ---
-TOKEN = "8905713910:AAE8_pmgtD8Z8IJwUsOXFnotMkwu0BLHLV8"
+TOKEN = "8905713910:AAHVRVslPLOkISi70N-sOY-_gsLUnvFONWI"
 
-# Optional Force Subscription Channels (Leave empty [] if not needed)
-REQUIRED_CHANNELS = [https://t.me/whatsappworkfile22] 
+# Force Subscription Channels (Leave [] empty if not using channels)
+REQUIRED_CHANNELS = []
 
 # Conversation States
 GET_FILE, GET_BATCH_SIZE, GET_START_NUM, GET_PREFIX, GET_FILENAME = range(5)
@@ -38,7 +38,6 @@ GET_FILE, GET_BATCH_SIZE, GET_START_NUM, GET_PREFIX, GET_FILENAME = range(5)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
-    # Force Subscription Check
     if REQUIRED_CHANNELS:
         keyboard = []
         not_joined = False
