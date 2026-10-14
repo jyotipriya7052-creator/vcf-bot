@@ -26,9 +26,9 @@ def run_server():
 threading.Thread(target=run_server, daemon=True).start()
 
 # --- Configuration ---
-TOKEN = "8905713910:AAE2f5eUAfDJ36tk22kwOFb6is-KR1oGjC8"
+TOKEN = "8905713910:AAFLrVYHcD9LBiUw2YZvStpYMFRghS4j8rk"
 
-# Main Menu Buttons (नीचे दिखने वाले मेनू बटन)
+# Main Menu Buttons
 MAIN_MENU = [
     ["Text to VCF", "VCF to Text"],
     ["Admin/Navy VCF", "VCF Editor"],
@@ -46,7 +46,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🌟 **WELCOME TO VCF TOOL BOT** 🌟\n\n"
         f"👤 **User:** {user.first_name}\n"
         f"⭐ **Status:** (Premium Unlocked 🔓)\n\n"
-        f"🛠️ Select a service from the menu below:",
+        f"🛠️ Select a service from the menu below or directly upload your `.txt` file:",
         reply_markup=reply_markup,
         parse_mode="Markdown"
     )
@@ -187,7 +187,10 @@ if __name__ == '__main__':
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
-            CHOOSING: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_choice)],
+            CHOOSING: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_choice),
+                MessageHandler(filters.Document.ALL, get_file)  # Direct file upload support at any time!
+            ],
             GET_FILE: [MessageHandler(filters.Document.ALL | (filters.TEXT & ~filters.COMMAND), get_file)],
             GET_BATCH_SIZE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_batch_size)],
             GET_START_NUM: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_start_num)],
