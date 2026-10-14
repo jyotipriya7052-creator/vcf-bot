@@ -27,7 +27,7 @@ def run_server():
 threading.Thread(target=run_server, daemon=True).start()
 
 # --- Configuration ---
-TOKEN = "8905713910:AAEUC4tcLaKsuzWW38u2-wRypCu1u2AvujU"
+TOKEN = "8735002304:AAHDflTHirZmks4Wh3P91k0K9GAAUSAeRmo"
 
 # Main Menu Buttons
 MAIN_MENU = [
