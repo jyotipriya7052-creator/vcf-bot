@@ -1,8 +1,7 @@
 import os
-import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -27,9 +26,12 @@ def run_server():
 threading.Thread(target=run_server, daemon=True).start()
 
 # --- Configuration ---
-TOKEN = "8735002304:AAHDflTHirZmks4Wh3P91k0K9GAAUSAeRmo"
+TOKEN = "8482835334:AAGbdNUDsq1aCyRl6aZkgrQEAXPgABKjk1I"
 
-# Main Menu Buttons
+# Force Subscription Channels (Add your channels here or leave [] if not needed)
+REQUIRED_CHANNELS = ["https://t.me/whatsappworkfile22"] 
+
+# Main Menu Buttons (As seen in video)
 MAIN_MENU = [
     ["Text to VCF", "VCF to Text"],
     ["Admin/Navy VCF", "VCF Editor"],
@@ -37,62 +39,93 @@ MAIN_MENU = [
     ["Rename File", "Get VCF Details"]
 ]
 
-# Conversation States
-CHOOSING, GET_FILE, GET_BATCH_SIZE, GET_START_NUM, GET_PREFIX, GET_FILENAME = range(6)
+# Conversation States for the 5-Step Wizard
+(
+    CHOOSING, 
+    GET_FILE, 
+    GET_VCF_FILENAME, 
+    GET_PREFIX, 
+    GET_FILE_START_NUM, 
+    GET_CONTACT_START_NUM, 
+    GET_BATCH_SIZE
+) = range(7)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    reply_markup = ReplyKeyboardMarkup(MAIN_MENU, resize_keyboard=True)
+    user_id = user.id
     
+    # Force Subscription Check
+    if REQUIRED_CHANNELS:
+        keyboard = []
+        not_joined = False
+        for channel in REQUIRED_CHANNELS:
+            try:
+                member = await context.bot.get_chat_member(chat_id=channel, user_id=user_id)
+                if member.status in ['left', 'kicked']:
+                    not_joined = True
+                    keyboard.append([InlineKeyboardButton(f"📢 Join {channel}", url=f"https://t.me/{channel.replace('@', '')}")])
+            except Exception:
+                pass
+        
+        if not_joined:
+            keyboard.append([InlineKeyboardButton("✅ Verify Joined", callback_data="check_sub")])
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text(
+                "🚨 **Join our official channels to use the bot!**\n\n"
+                "Please join the channels below and click 'Verify Joined':",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+            return ConversationHandler.END
+
+    reply_markup = ReplyKeyboardMarkup(MAIN_MENU, resize_keyboard=True)
     welcome_text = (
-        f"🎉 **WELCOME TO VCF TOOL BOT**\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🌟 **WELCOME TO VCF TOOL BOT** 🌟\n\n"
         f"👤 **User:** {user.first_name}\n"
+        f"🆔 **ID:** `{user_id}`\n"
         f"⚡ **Status:** (Premium Unlocked 🔓)\n"
-        f"👨‍💻 **Developed By:** `@Rule_Breakerz`\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👨‍💻 **Developed By:** `@Rule_Breakerz`\n\n"
         f"💡 Need help? Send /help\n"
         f"⬇️ Select a service from the menu below:"
     )
     await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode="Markdown")
     return CHOOSING
 
-# --- Extra Commands (As seen in screenshot) ---
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_text = (
-        "❓ **HOW TO USE THIS BOT**\n\n"
-        "1️⃣ Click **Text to VCF** from the menu.\n"
-        "2️⃣ Upload your `.txt` file (Unlimited contacts supported).\n"
-        "3️⃣ Enter batch size (e.g., 50 or 100).\n"
-        "4️⃣ Enter sequence starting number (e.g., 1).\n"
-        "5️⃣ Enter contact name prefix (e.g., VV).\n"
-        "6️⃣ Enter output filename (e.g., MyList).\n\n"
-        "Bot will instantly generate your VCF files!"
-    )
-    await update.message.reply_text(help_text, parse_mode="Markdown")
-
-async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    start_time = time.time()
-    msg = await update.message.reply_text("🏓 Pinging...")
-    end_time = time.time()
-    ping = round((end_time - start_time) * 1000, 2)
-    await msg.edit_text(f"🏓 **Pong!** Bot Speed: `{ping}ms`", parse_mode="Markdown")
-
-async def caption_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    caption_status = context.user_data.get('caption', True)
-    context.user_data['caption'] = not caption_status
-    status_str = "ON 🟢" if not caption_status else "OFF 🔴"
-    await update.message.reply_text(f"⚠️ Caption setting turned: **{status_str}**", parse_mode="Markdown")
-
-async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🌐 Default Language is set to **English**.")
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    
+    if query.data == "check_sub":
+        joined = True
+        for channel in REQUIRED_CHANNELS:
+            try:
+                member = await context.bot.get_chat_member(chat_id=channel, user_id=user_id)
+                if member.status in ['left', 'kicked']:
+                    joined = False
+            except Exception:
+                pass
+        
+        if joined:
+            user = query.from_user
+            reply_markup = ReplyKeyboardMarkup(MAIN_MENU, resize_keyboard=True)
+            await query.message.edit_text("✅ **Verification Successful!** Welcome aboard.")
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"🌟 **WELCOME TO VCF TOOL BOT** 🌟\n\n👤 **User:** {user.first_name}\n⚡ **Status:** (Premium Unlocked 🔓)\n\n⬇️ Select a service from the menu below:",
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+            return CHOOSING
+        else:
+            await query.answer("❌ You haven't joined all required channels yet!", show_alert=True)
 
 async def handle_menu_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if text == "Text to VCF":
         await update.message.reply_text(
-            "📁 **Text to VCF Selected**\n\n"
-            "Please upload your `.txt` file containing numbers (Unlimited numbers supported):",
+            "📥 **Text to VCF Module**\n\n"
+            "📂 Send Numbers, .txt, or Excel files...",
             reply_markup=ReplyKeyboardRemove(),
             parse_mode="Markdown"
         )
@@ -100,7 +133,7 @@ async def handle_menu_choice(update: Update, context: ContextTypes.DEFAULT_TYPE)
     else:
         reply_markup = ReplyKeyboardMarkup(MAIN_MENU, resize_keyboard=True)
         await update.message.reply_text(
-            f"🛠️ **{text}** feature selected!\n\nChoose an option from the menu:",
+            f"🛠️ **{text}** feature is selected.\n\nChoose an option from the menu:",
             reply_markup=reply_markup
         )
         return CHOOSING
@@ -119,24 +152,70 @@ async def get_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif update.message.text:
             text = update.message.text
     except Exception as e:
-        await update.message.reply_text(f"❌ Error reading file: {str(e)}\nPlease upload the `.txt` file again.")
+        await update.message.reply_text(f"❌ Error reading file: {str(e)}\nPlease upload the file again.")
         return GET_FILE
 
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     
     if not lines:
-        await update.message.reply_text("❌ No contacts found in the file! Please upload a valid `.txt` file.")
+        await update.message.reply_text("❌ No contacts found! Please upload a valid `.txt` file.")
         return GET_FILE
 
     context.user_data['contacts'] = lines
+    
+    # Step 0: Initial Config message as seen in video
     await update.message.reply_text(
-        f"✅ Successfully received **{len(lines)}** contacts!\n\n"
-        "2️⃣ How many contacts do you want in each VCF file? (Example: `50`, `100`, `500`):",
+        f"⚙️ **Configuring VCF**\n\n"
+        f"📊 **Total Contacts:** {len(lines)}\n"
+        f"🔄 **Status:** Processing...\n\n"
+        f"1️⃣ **Send VCF File Name:**\n*(Example: Target_Audience)*",
+        parse_mode="Markdown"
+    )
+    return GET_VCF_FILENAME
+
+async def get_vcf_filename(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['vcf_filename'] = update.message.text.strip()
+    await update.message.reply_text(
+        "2️⃣ **Contact Name Prefix?:**\n*(Example: Rule Test)*",
+        parse_mode="Markdown"
+    )
+    return GET_PREFIX
+
+async def get_prefix(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['prefix'] = update.message.text.strip()
+    await update.message.reply_text(
+        "3️⃣ **VCF File Starting Number?:**\n*(Example: 1)*",
+        parse_mode="Markdown"
+    )
+    return GET_FILE_START_NUM
+
+async def get_file_start_num(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        context.user_data['file_start_num'] = int(update.message.text.strip())
+    except ValueError:
+        await update.message.reply_text("❌ Please enter a valid number (Example: 1):")
+        return GET_FILE_START_NUM
+
+    await update.message.reply_text(
+        "4️⃣ **Contact Starting Number?:**\n*(Example: 1)*",
+        parse_mode="Markdown"
+    )
+    return GET_CONTACT_START_NUM
+
+async def get_contact_start_num(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        context.user_data['contact_start_num'] = int(update.message.text.strip())
+    except ValueError:
+        await update.message.reply_text("❌ Please enter a valid number (Example: 1):")
+        return GET_CONTACT_START_NUM
+
+    await update.message.reply_text(
+        "5️⃣ **Contacts per vcf file?:**\n*(Example: 50)*",
         parse_mode="Markdown"
     )
     return GET_BATCH_SIZE
 
-async def get_batch_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_batch_size_and_generate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         batch_size = int(update.message.text.strip())
         if batch_size <= 0:
@@ -146,45 +225,20 @@ async def get_batch_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Please enter a valid number greater than 0:")
         return GET_BATCH_SIZE
 
-    await update.message.reply_text(
-        "3️⃣ From which number do you want to start the sequence? (Example: `1` or `51`):",
-        parse_mode="Markdown"
-    )
-    return GET_START_NUM
-
-async def get_start_num(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        start_num = int(update.message.text.strip())
-        context.user_data['start_num'] = start_num
-    except ValueError:
-        await update.message.reply_text("❌ Please enter a valid starting number (Example: 1):")
-        return GET_START_NUM
-
-    await update.message.reply_text(
-        "4️⃣ What name prefix do you want inside the contacts? (Example: `Admin` or `VV`):",
-        parse_mode="Markdown"
-    )
-    return GET_PREFIX
-
-async def get_prefix(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['prefix'] = update.message.text.strip()
-    await update.message.reply_text(
-        "5️⃣ What do you want to name the output VCF file? (Example: `Admin_File`):",
-        parse_mode="Markdown"
-    )
-    return GET_FILENAME
-
-async def get_filename_and_generate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    base_filename = update.message.text.strip().replace(" ", "_")
+    # Retrieve all inputs
     contacts = context.user_data.get('contacts', [])
-    batch_size = context.user_data.get('batch_size', 50)
-    current_num = context.user_data.get('start_num', 1)
-    prefix = context.user_data.get('prefix', 'Contact')
-    show_caption = context.user_data.get('caption', True)
+    vcf_name = context.user_data.get('vcf_filename', 'Contact')
+    prefix = context.user_data.get('prefix', 'User')
+    file_num = context.user_data.get('file_start_num', 1)
+    contact_num = context.user_data.get('contact_start_num', 1)
 
-    await update.message.reply_text("⚡ Generating your customized VCF files at superfast speed, please wait...")
+    await update.message.reply_text(
+        f"🚀 **Generating VCF Files**\n"
+        f"📊 **Total Contacts:** {len(contacts)}\n"
+        f"🔄 **Status:** Processing...",
+        parse_mode="Markdown"
+    )
 
-    file_count = 1
     for i in range(0, len(contacts), batch_size):
         batch = contacts[i:i + batch_size]
         vcf_lines = []
@@ -192,34 +246,33 @@ async def get_filename_and_generate(update: Update, context: ContextTypes.DEFAUL
         for line in batch:
             parts = line.split(',')
             phone = parts[1].strip() if len(parts) >= 2 else parts[0].strip()
-            contact_name = f"{prefix} {current_num}"
+            contact_name = f"{prefix} {contact_num}"
             vcf_lines.append(f"BEGIN:VCARD\nVERSION:3.0\nN:{contact_name};;;;\nFN:{contact_name}\nTEL;TYPE=CELL:{phone}\nEND:VCARD\n")
-            current_num += 1
+            contact_num += 1
 
         vcf_content = "".join(vcf_lines)
-        file_name = f"{base_filename}_part{file_count}.vcf"
+        file_name = f"{vcf_name}{file_num}.vcf"
         
         with open(file_name, "w", encoding="utf-8") as f:
             f.write(vcf_content)
-
-        caption_msg = f"📁 File {file_count}: {file_name}" if show_caption else None
 
         with open(file_name, "rb") as f:
             await update.message.reply_document(
                 document=f,
                 filename=file_name,
-                caption=caption_msg
+                caption=f"📁 {file_name}"
             )
         
         if os.path.exists(file_name):
             os.remove(file_name)
         
-        file_count += 1
+        file_num += 1
 
     reply_markup = ReplyKeyboardMarkup(MAIN_MENU, resize_keyboard=True)
     await update.message.reply_text(
-        "✨ All VCF files generated successfully!\nChoose an option from the menu:",
-        reply_markup=reply_markup
+        "✅ **Generation Completed!**",
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
     )
     return CHOOSING
 
@@ -239,10 +292,11 @@ if __name__ == '__main__':
                 MessageHandler(filters.Document.ALL, get_file)
             ],
             GET_FILE: [MessageHandler(filters.Document.ALL | (filters.TEXT & ~filters.COMMAND), get_file)],
-            GET_BATCH_SIZE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_batch_size)],
-            GET_START_NUM: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_start_num)],
+            GET_VCF_FILENAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_vcf_filename)],
             GET_PREFIX: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_prefix)],
-            GET_FILENAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_filename_and_generate)],
+            GET_FILE_START_NUM: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_file_start_num)],
+            GET_CONTACT_START_NUM: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_contact_start_num)],
+            GET_BATCH_SIZE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_batch_size_and_generate)],
         },
         fallbacks=[
             CommandHandler('cancel', cancel),
@@ -250,10 +304,7 @@ if __name__ == '__main__':
         ],
     )
 
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("ping", ping_command))
-    app.add_handler(CommandHandler("caption", caption_command))
-    app.add_handler(CommandHandler("language", language_command))
     app.add_handler(conv_handler)
+    app.add_handler(CallbackQueryHandler(button_callback))
 
     app.run_polling()
